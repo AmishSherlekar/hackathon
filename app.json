@@ -8,7 +8,8 @@
     "scheme": "hackathon",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.hackathon.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +18,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.hackathon.app"
     },
     "web": {
       "output": "static",
@@ -41,7 +43,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "55b03ebd-d3b4-49bb-824e-86d66c4f96a6"
+        "projectId": "5b529bba-b263-43a2-b613-d808ac7318e0"
       }
     }
   }
