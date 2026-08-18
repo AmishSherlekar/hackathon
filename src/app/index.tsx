@@ -1,37 +1,92 @@
 import { useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { useEffect, useState } from "react";
+import {
+  Button,
+  StyleSheet,
+  Text,
+  TextInput,
+  useColorScheme,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../color/Colors";
+import { CreateUser } from "../components/CreateUser";
+import { useFirebaseAuth } from "../hooks/useFirebaseAuth";
+import { auth } from "../service/firebaseconfig";
 
-interface RoleOption {
-  key: "seeker" | "giver";
-  route: "/seeker" | "/giver";
-  glyph: string;
-  title: string;
-  description: string;
+function getErrorMessage(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error) {
+    const firebaseError = error as { code: string; message?: string };
+    switch (firebaseError.code) {
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+        return "Incorrect email or password.";
+      case "auth/invalid-email":
+        return "That email address looks invalid.";
+      case "auth/too-many-requests":
+        return "Too many attempts. Please try again later.";
+      default:
+        return firebaseError.message ?? "Something went wrong. Please try again.";
+    }
+  }
+  if (error instanceof Error) return error.message;
+  return "Something went wrong. Please try again.";
 }
 
-const ROLES: RoleOption[] = [
-  {
-    key: "seeker",
-    route: "/seeker",
-    glyph: "🔎",
-    title: "I'm a Job Seeker",
-    description: "Build your profile and get matched to roles",
-  },
-  {
-    key: "giver",
-    route: "/giver",
-    glyph: "💼",
-    title: "I'm a Job Giver",
-    description: "Post openings and find the right candidates",
-  },
-];
-
-export default function Index() {
+export default function MainScreen() {
   const router = useRouter();
+  const { isLoaded, isSignedIn } = useFirebaseAuth();
   const scheme = useColorScheme();
   const theme = scheme === "light" ? Colors.light : Colors.dark;
+
+  const [emailAddress, setEmailAddress] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mode, setMode] = useState<"signIn" | "signUp">("signIn");
+
+  useEffect(() => {
+    if (isSignedIn) {
+      router.replace("/home");
+    }
+  }, [isSignedIn, router]);
+
+  const handleSignIn = async () => {
+    setErrorMessage("");
+    setIsSubmitting(true);
+    try {
+      await signInWithEmailAndPassword(auth, emailAddress, password);
+      // No manual navigation here — the isSignedIn effect above handles it
+      // once Firebase's auth-state listener picks up the new session.
+    } catch (error) {
+      // Firebase intentionally collapses "wrong password" and "no such
+      // account" into the same auth/invalid-credential code (anti-enumeration),
+      // so we can't reliably auto-switch to sign-up here — the user picks
+      // "Create an account instead" themselves if they don't have one yet.
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isLoaded || isSignedIn) {
+    return null;
+  }
+
+  if (mode === "signUp") {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+        <View style={styles.container}>
+          <CreateUser
+            initialEmail={emailAddress}
+            initialPassword={password}
+            onBack={() => setMode("signIn")}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
@@ -43,49 +98,60 @@ export default function Index() {
               { backgroundColor: theme.accent, shadowColor: theme.accent },
             ]}
           />
-          <Text style={[styles.title, { color: theme.text }]}>
-            Welcome
-          </Text>
+          <Text style={[styles.title, { color: theme.text }]}>Welcome</Text>
           <Text style={[styles.subtitle, { color: theme.muted }]}>
-            Choose how you want to use the app
+            Sign in to continue
           </Text>
         </View>
-
-        <View style={styles.cardStack}>
-          {ROLES.map((role) => (
-            <Pressable
-              key={role.key}
-              onPress={() => router.push(role.route)}
-              style={({ pressed }) => [
-                styles.card,
-                {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.border,
-                  opacity: pressed ? 0.85 : 1,
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.iconWrap,
-                  { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
-                ]}
-              >
-                <Text style={styles.glyph}>{role.glyph}</Text>
-              </View>
-              <View style={styles.cardTextWrap}>
-                <Text style={[styles.cardTitle, { color: theme.text }]}>
-                  {role.title}
-                </Text>
-                <Text style={[styles.cardDescription, { color: theme.muted }]}>
-                  {role.description}
-                </Text>
-              </View>
-              <Text style={[styles.chevron, { color: theme.accent }]}>›</Text>
-            </Pressable>
-          ))}
-        </View>
+        <TextInput
+          style={[
+            styles.input,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              color: theme.text,
+            },
+          ]}
+          autoCapitalize="none"
+          value={emailAddress}
+          placeholder="Enter email"
+          placeholderTextColor={theme.muted}
+          onChangeText={setEmailAddress}
+          keyboardType="email-address"
+          editable={!isSubmitting}
+        />
+        <TextInput
+          style={[
+            styles.input,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              color: theme.text,
+            },
+          ]}
+          value={password}
+          placeholder="Enter password"
+          placeholderTextColor={theme.muted}
+          secureTextEntry={true}
+          onChangeText={setPassword}
+          editable={!isSubmitting}
+        />
+        {errorMessage ? (
+          <Text style={[styles.errorText, { color: theme.accentAlt }]}>
+            {errorMessage}
+          </Text>
+        ) : null}
+        <Button
+          title={isSubmitting ? "Signing in..." : "Sign in"}
+          onPress={handleSignIn}
+          color={theme.accentAlt}
+          disabled={isSubmitting}
+        />
+        <Button
+          title="Create an account instead"
+          onPress={() => setMode("signUp")}
+          color={theme.muted}
+        />
       </View>
     </SafeAreaView>
   );
@@ -97,12 +163,13 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    padding: 24,
+    gap: 12,
     justifyContent: "center",
-    paddingHorizontal: 24,
   },
   header: {
     alignItems: "center",
-    marginBottom: 44,
+    marginBottom: 32,
   },
   logoDot: {
     width: 14,
@@ -114,50 +181,24 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "700",
     letterSpacing: 0.3,
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 13,
     marginTop: 8,
+    textAlign: "center",
   },
-  cardStack: {
-    gap: 14,
-  },
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 18,
+  input: {
     borderWidth: 1,
-    padding: 16,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
   },
-  iconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 14,
-  },
-  glyph: {
-    fontSize: 22,
-  },
-  cardTextWrap: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  cardDescription: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  chevron: {
-    fontSize: 26,
-    fontWeight: "300",
-    marginLeft: 8,
+  errorText: {
+    fontSize: 13,
+    textAlign: "center",
   },
 });
