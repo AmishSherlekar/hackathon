@@ -30,11 +30,15 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#0a0a0f",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "expo-image",
+      "expo-status-bar",
+      "@clerk/expo",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -43,7 +47,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5b529bba-b263-43a2-b613-d808ac7318e0"
+        "projectId": "efa9f287-0ff0-4d9e-baed-26eb9702bd0a"
       }
     }
   }
